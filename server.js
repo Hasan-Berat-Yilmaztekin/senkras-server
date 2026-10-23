@@ -7,34 +7,21 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 const odalar = {}; 
+const odaSifreleri = {}; // YENİ: ŞİFRE KASASI
 
-// --- 1. YENİ EKLENEN API BÖLÜMÜ ---
-// PHP sitemizin bu sunucudan veri çekmesine izin veriyoruz (CORS)
 app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
     next();
 });
 
-// Admin paneli bu adrese gelip verileri soracak
 app.get('/api/stats', (req, res) => {
-    let aktifOdaSayisi = 0;
-    let toplamIstemci = 0;
-    
+    let aktifOdaSayisi = 0; let toplamIstemci = 0;
     for (const oda in odalar) {
-        if (odalar[oda].length > 0) {
-            aktifOdaSayisi++;
-            toplamIstemci += odalar[oda].length;
-        }
+        if (odalar[oda].length > 0) { aktifOdaSayisi++; toplamIstemci += odalar[oda].length; }
     }
-    
-    // Verileri paketleyip geri gönderiyoruz
-    res.json({
-        odalar: aktifOdaSayisi,
-        istemciler: toplamIstemci
-    });
+    res.json({ odalar: aktifOdaSayisi, istemciler: toplamIstemci });
 });
-// ------------------------------------
 
 wss.on('connection', (ws) => {
     let kullaniciOdasi = null;
@@ -43,10 +30,25 @@ wss.on('connection', (ws) => {
         const data = JSON.parse(mesaj.toString());
 
         if (data.islem === 'odayaKatil') {
-            kullaniciOdasi = data.odaKodu;
-            if (!odalar[kullaniciOdasi]) odalar[kullaniciOdasi] = [];
-            if (!odalar[kullaniciOdasi].includes(ws)) odalar[kullaniciOdasi].push(ws);
-            console.log(`SENKRAS: Bir kullanıcı [${kullaniciOdasi}] odasına katıldı!`);
+            const oda = data.odaKodu;
+            const sifre = data.sifre || ""; // Şifre girilmezse boş kabul et
+
+            if (!odalar[oda]) {
+                // İLK GİREN KİŞİ ODAYI KURAR VE ŞİFREYİ BELİRLER
+                odalar[oda] = [];
+                odaSifreleri[oda] = sifre; 
+                console.log(`SENKRAS: [${oda}] odası kuruldu. (Şifreli: ${sifre ? 'Evet' : 'Hayır'})`);
+            } else {
+                // SONRADAN GİRENLER ŞİFREYİ DOĞRU GİRMEK ZORUNDA
+                if (odaSifreleri[oda] !== sifre) {
+                    ws.send(JSON.stringify({ islem: 'sistemMesaji', mesaj: 'HATA: Yanlış Şifre! Odaya erişim reddedildi.' }));
+                    return; // Yanlışsa kapıdan çevir!
+                }
+            }
+
+            kullaniciOdasi = oda;
+            if (!odalar[oda].includes(ws)) odalar[oda].push(ws);
+            console.log(`SENKRAS: Bir kullanıcı [${oda}] odasına katıldı!`);
         } 
         else if (kullaniciOdasi && odalar[kullaniciOdasi]) {
             odalar[kullaniciOdasi].forEach((client) => {
@@ -59,13 +61,10 @@ wss.on('connection', (ws) => {
 
     ws.on('close', () => {
         if (kullaniciOdasi && odalar[kullaniciOdasi]) {
-            // Kullanıcıyı odadan çıkar
             odalar[kullaniciOdasi] = odalar[kullaniciOdasi].filter(client => client !== ws);
-            console.log(`SENKRAS: Bir kullanıcı [${kullaniciOdasi}] odasından ayrıldı.`);
-            
-            // --- 2. OPTİMİZASYON: Oda tamamen boşaldıysa odayı sil ---
             if(odalar[kullaniciOdasi].length === 0) {
                 delete odalar[kullaniciOdasi];
+                delete odaSifreleri[kullaniciOdasi]; // Oda boşalınca şifreyi de sil
             }
         }
     });
@@ -73,5 +72,5 @@ wss.on('connection', (ws) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`🚀 SENKRAS Bulut Sunucusu ${PORT} portunda API VE ODA DESTEĞİYLE çalışıyor!`);
+    console.log(`🚀 SENKRAS Sunucusu ${PORT} portunda çalışıyor!`);
 });
