@@ -15,14 +15,15 @@ app.use((req, res, next) => {
     next();
 });
 
-app.get('/api/stats', (req, res) => {
-    let aktifOdaSayisi = 0; let toplamIstemci = 0;
-    for (const oda in odalar) {
-        if (odalar[oda].length > 0) { aktifOdaSayisi++; toplamIstemci += odalar[oda].length; }
+// Odanın varlığını ve şifre durumunu sorgulayan yeni API
+app.get('/api/room/:code', (req, res) => {
+    const odaKodu = req.params.code.toUpperCase();
+    if (odalar[odaKodu]) {
+        res.json({ exists: true, hasPassword: !!odaSifreleri[odaKodu] });
+    } else {
+        res.json({ exists: false, hasPassword: false });
     }
-    res.json({ odalar: aktifOdaSayisi, istemciler: toplamIstemci });
 });
-
 wss.on('connection', (ws) => {
     let kullaniciOdasi = null;
 
