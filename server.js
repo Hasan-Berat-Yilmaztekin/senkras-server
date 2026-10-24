@@ -46,7 +46,11 @@ app.get('/api/room/:code', (req, res) => {
     else { res.json({ exists: false, hasPassword: false }); }
 });
 
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, req) => {
+    // Kullanıcının GERÇEK ayak izini yakala
+    const gercekIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    ws.ipAdresi = gercekIp ? gercekIp.split(',')[0].trim() : "Bilinmiyor";
+    
     ws.aktifOdalar = new Set();
 
     ws.on('message', (mesaj) => {
