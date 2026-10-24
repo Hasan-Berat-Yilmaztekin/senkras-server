@@ -33,6 +33,23 @@ wss.on('connection', (ws) => {
     ws.on('message', (mesaj) => {
         const data = JSON.parse(mesaj.toString());
 
+        // YENİ: Kalp atışını duy ama kimseye yansıtma (Sessizce hayatta tut)
+        if (data.islem === 'ping') return;
+
+        // YENİ: Kopma durumunda eklentinin çaktırmadan odayı geri kurması/katılması
+        if (data.islem === 'otomatikYenidenBaglan') {
+            const oda = data.odaKodu;
+            if (!odalar[oda]) {
+                odalar[oda] = [];
+                odaSifreleri[oda] = data.sifre || "";
+            }
+            if (odaSifreleri[oda] && odaSifreleri[oda] !== (data.sifre || "")) return;
+            
+            ws.aktifOdalar.add(oda);
+            if (!odalar[oda].includes(ws)) odalar[oda].push(ws);
+            return; 
+        }
+
         if (data.islem === 'odaKur') {
             const oda = data.odaKodu;
             if (odalar[oda]) {
