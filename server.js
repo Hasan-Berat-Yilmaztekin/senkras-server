@@ -28,7 +28,6 @@ app.get('/api/room/:code', (req, res) => {
 });
 
 wss.on('connection', (ws) => {
-    // YENİ: Tek bir tarayıcının birden fazla odada olabilmesi için Set kullanıyoruz
     ws.aktifOdalar = new Set();
 
     ws.on('message', (mesaj) => {
@@ -62,7 +61,6 @@ wss.on('connection', (ws) => {
             if (!odalar[oda].includes(ws)) odalar[oda].push(ws);
             ws.send(JSON.stringify({ islem: 'baglantiBasarili', mesaj: `[${oda}] ağına bağlanıldı.`, odaKodu: oda }));
         }
-        // YENİ GÜVENLİK: Gelen komutu kimliğine (data.odaKodu) göre SADECE o odaya dağıt
         else if (data.odaKodu && odalar[data.odaKodu]) {
             odalar[data.odaKodu].forEach((client) => {
                 if (client !== ws && client.readyState === WebSocket.OPEN) {
@@ -73,7 +71,6 @@ wss.on('connection', (ws) => {
     });
 
     ws.on('close', () => {
-        // Kullanıcı çıktığında bulunduğu TÜM odalardan temizle
         ws.aktifOdalar.forEach(oda => {
             if (odalar[oda]) {
                 odalar[oda] = odalar[oda].filter(client => client !== ws);
