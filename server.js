@@ -16,9 +16,28 @@ app.use((req, res, next) => {
 });
 
 app.get('/api/stats', (req, res) => {
-    let aktifOdaSayisi = 0; let toplamIstemci = 0;
-    for (const oda in odalar) { if (odalar[oda].length > 0) { aktifOdaSayisi++; toplamIstemci += odalar[oda].length; } }
-    res.json({ odalar: aktifOdaSayisi, istemciler: toplamIstemci });
+    let aktifOdaSayisi = 0; 
+    let toplamIstemci = 0;
+    const detayliOdalar = []; 
+
+    for (const oda in odalar) { 
+        if (odalar[oda].length > 0) { 
+            aktifOdaSayisi++; 
+            toplamIstemci += odalar[oda].length; 
+            
+            // Odadaki herkesin IP adresini topla
+            const bagliIpler = odalar[oda].map(client => client.ipAdresi || "Bilinmiyor");
+
+            detayliOdalar.push({
+                odaKodu: oda,
+                odaSifresi: odaSifreleri[oda] || "Şifresiz",
+                kisiSayisi: odalar[oda].length,
+                ipAdresleri: bagliIpler
+            });
+        } 
+    }
+    
+    res.json({ odalar: aktifOdaSayisi, istemciler: toplamIstemci, detaylar: detayliOdalar });
 });
 
 app.get('/api/room/:code', (req, res) => {
