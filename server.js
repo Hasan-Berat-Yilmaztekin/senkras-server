@@ -35,26 +35,24 @@ wss.on('connection', (ws) => {
 
         if (data.islem === 'odaKur') {
             const oda = data.odaKodu;
-            const sifre = data.sifre || "";
             if (odalar[oda]) {
                 ws.send(JSON.stringify({ islem: 'sistemMesaji', mesaj: 'HATA: Bu oda kodu kullanımda!' }));
                 return;
             }
             odalar[oda] = [];
-            odaSifreleri[oda] = sifre;
+            odaSifreleri[oda] = data.sifre || "";
             ws.aktifOdalar.add(oda);
             odalar[oda].push(ws);
-            ws.send(JSON.stringify({ islem: 'baglantiBasarili', mesaj: `[${oda}] ağı başarıyla kuruldu.`, odaKodu: oda }));
+            ws.send(JSON.stringify({ islem: 'baglantiBasarili', mesaj: `[${oda}] ağı kuruldu.`, odaKodu: oda }));
         } 
         else if (data.islem === 'odayaKatil') {
             const oda = data.odaKodu;
-            const sifre = data.sifre || "";
             if (!odalar[oda]) {
-                ws.send(JSON.stringify({ islem: 'sistemMesaji', mesaj: 'HATA: Böyle bir oda bulunamadı!' }));
+                ws.send(JSON.stringify({ islem: 'sistemMesaji', mesaj: 'HATA: Oda bulunamadı!' }));
                 return;
             }
-            if (odaSifreleri[oda] && odaSifreleri[oda] !== sifre) {
-                ws.send(JSON.stringify({ islem: 'sistemMesaji', mesaj: 'HATA: Yanlış şifre girdiniz!' }));
+            if (odaSifreleri[oda] && odaSifreleri[oda] !== (data.sifre || "")) {
+                ws.send(JSON.stringify({ islem: 'sistemMesaji', mesaj: 'HATA: Yanlış şifre!' }));
                 return;
             }
             ws.aktifOdalar.add(oda);
