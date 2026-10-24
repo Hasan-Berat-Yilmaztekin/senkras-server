@@ -33,10 +33,8 @@ wss.on('connection', (ws) => {
     ws.on('message', (mesaj) => {
         const data = JSON.parse(mesaj.toString());
 
-        // YENİ: Kalp atışını duy ama kimseye yansıtma (Sessizce hayatta tut)
         if (data.islem === 'ping') return;
 
-        // YENİ: Kopma durumunda eklentinin çaktırmadan odayı geri kurması/katılması
         if (data.islem === 'otomatikYenidenBaglan') {
             const oda = data.odaKodu;
             if (!odalar[oda]) {
@@ -46,8 +44,25 @@ wss.on('connection', (ws) => {
             if (odaSifreleri[oda] && odaSifreleri[oda] !== (data.sifre || "")) return;
             
             ws.aktifOdalar.add(oda);
-            if (!odalar[oda].includes(ws)) odalar[oda].push(ws);
+            odalar[oda].push(ws); 
             return; 
+        }
+
+        // YENİ: Biri sekmeyi yenilediğinde veya Ayrıl dediğinde odadan temizle
+        if (data.islem === 'odadanAyril') {
+            const oda = data.odaKodu;
+            if (odalar[oda]) {
+                const index = odalar[oda].indexOf(ws);
+                if (index > -1) {
+                    odalar[oda].splice(index, 1); // Sadece kapanan sekmeyi sil
+                }
+                // Oda tamamen boşaldıysa yok et
+                if (odalar[oda].length === 0) {
+                    delete odalar[oda];
+                    delete odaSifreleri[oda];
+                }
+            }
+            return;
         }
 
         if (data.islem === 'odaKur') {
@@ -73,7 +88,7 @@ wss.on('connection', (ws) => {
                 return;
             }
             ws.aktifOdalar.add(oda);
-            if (!odalar[oda].includes(ws)) odalar[oda].push(ws);
+            odalar[oda].push(ws); // YENİ: Aynı tarayıcıdan farklı sekmeler girerse sayıyı doğru tutar
             ws.send(JSON.stringify({ islem: 'baglantiBasarili', mesaj: `[${oda}] ağına bağlanıldı.`, odaKodu: oda }));
         }
         else if (data.odaKodu && odalar[data.odaKodu]) {
@@ -88,6 +103,7 @@ wss.on('connection', (ws) => {
     ws.on('close', () => {
         ws.aktifOdalar.forEach(oda => {
             if (odalar[oda]) {
+                // Tarayıcı tamamen kapatılırsa temizle
                 odalar[oda] = odalar[oda].filter(client => client !== ws);
                 if(odalar[oda].length === 0) {
                     delete odalar[oda];
